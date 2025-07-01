@@ -72,10 +72,11 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:9600 || exit 1"]
+      test: ["CMD-SHELL", "netstat -tuln | grep :5044 || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
+      start_period: 60s
 
   filebeat:
     image: docker.elastic.co/beats/filebeat:8.11.0
