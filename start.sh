@@ -20,7 +20,7 @@ chmod +x honeypots/redis-honeypot/redis-logger.sh
 # Fix Logstash config permissions
 echo "🔧 Setting Logstash config permissions..."
 sudo chown -R 1000:1000 infrastructure/logstash/config/
-sudo chmod -R 644 infrastructure/logstash/config/
+sudo chmod -R 755 infrastructure/logstash/config/
 
 # Start infrastructure first
 echo "🔧 Starting ELK Stack infrastructure..."
