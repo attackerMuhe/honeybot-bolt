@@ -59,7 +59,7 @@ services:
     hostname: logstash
     volumes:
       - ./logstash/pipeline:/usr/share/logstash/pipeline:ro
-      - ./logstash/config:/usr/share/logstash/config:ro
+      - ./logstash/config:/usr/share/logstash/config
     ports:
       - "5044:5044"
     environment:
