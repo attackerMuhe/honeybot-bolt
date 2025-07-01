@@ -13,6 +13,8 @@ filebeat.inputs:
   multiline.pattern: '^{'
   multiline.negate: true
   multiline.match: after
+  close_inactive: 5m
+  scan_frequency: 10s
 
 - type: log
   enabled: true
@@ -26,6 +28,8 @@ filebeat.inputs:
   multiline.pattern: '^\d{4}-\d{2}-\d{2}'
   multiline.negate: true
   multiline.match: after
+  close_inactive: 5m
+  scan_frequency: 10s
 
 - type: log
   enabled: true
@@ -41,6 +45,8 @@ filebeat.inputs:
   multiline.pattern: '^{'
   multiline.negate: true
   multiline.match: after
+  close_inactive: 5m
+  scan_frequency: 10s
 
 - type: log
   enabled: true
@@ -56,6 +62,8 @@ filebeat.inputs:
   multiline.pattern: '^{'
   multiline.negate: true
   multiline.match: after
+  close_inactive: 5m
+  scan_frequency: 10s
 
 output.logstash:
   hosts: ["logstash:5044"]
@@ -64,7 +72,7 @@ processors:
 - add_host_metadata:
     when.not.contains.tags: forwarded
 
-logging.level: info
+logging.level: debug
 logging.to_files: true
 logging.files:
   path: /var/log/filebeat
