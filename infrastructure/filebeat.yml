@@ -1,5 +1,6 @@
 filebeat.inputs:
-- type: log
+- type: filestream
+  id: cowrie-logs
   enabled: true
   paths:
     - /data/cowrie/*.json
@@ -8,15 +9,23 @@ filebeat.inputs:
     service: "cowrie"
     honeypot_type: "ssh"
   fields_under_root: true
-  json.keys_under_root: true
-  json.add_error_key: true
-  multiline.pattern: '^{'
-  multiline.negate: true
-  multiline.match: after
-  close_inactive: 5m
+  processors:
+    - decode_json_fields:
+        fields: ["message"]
+        target: ""
+        overwrite_keys: true
+        add_error_key: true
+  parsers:
+    - multiline:
+        type: pattern
+        pattern: '^{'
+        negate: true
+        match: after
+  close.on_state_change.inactive: 5m
   scan_frequency: 10s
 
-- type: log
+- type: filestream
+  id: dionaea-logs
   enabled: true
   paths:
     - /data/dionaea/*.log
@@ -25,13 +34,17 @@ filebeat.inputs:
     service: "dionaea"
     honeypot_type: "multi-protocol"
   fields_under_root: true
-  multiline.pattern: '^\d{4}-\d{2}-\d{2}'
-  multiline.negate: true
-  multiline.match: after
-  close_inactive: 5m
+  parsers:
+    - multiline:
+        type: pattern
+        pattern: '^\d{4}-\d{2}-\d{2}'
+        negate: true
+        match: after
+  close.on_state_change.inactive: 5m
   scan_frequency: 10s
 
-- type: log
+- type: filestream
+  id: redis-logs
   enabled: true
   paths:
     - /data/redis/*.json
@@ -40,15 +53,23 @@ filebeat.inputs:
     service: "redis"
     honeypot_type: "database"
   fields_under_root: true
-  json.keys_under_root: true
-  json.add_error_key: true
-  multiline.pattern: '^{'
-  multiline.negate: true
-  multiline.match: after
-  close_inactive: 5m
+  processors:
+    - decode_json_fields:
+        fields: ["message"]
+        target: ""
+        overwrite_keys: true
+        add_error_key: true
+  parsers:
+    - multiline:
+        type: pattern
+        pattern: '^{'
+        negate: true
+        match: after
+  close.on_state_change.inactive: 5m
   scan_frequency: 10s
 
-- type: log
+- type: filestream
+  id: snmp-logs
   enabled: true
   paths:
     - /data/snmp/*.json
@@ -57,12 +78,19 @@ filebeat.inputs:
     service: "snmp"
     honeypot_type: "network"
   fields_under_root: true
-  json.keys_under_root: true
-  json.add_error_key: true
-  multiline.pattern: '^{'
-  multiline.negate: true
-  multiline.match: after
-  close_inactive: 5m
+  processors:
+    - decode_json_fields:
+        fields: ["message"]
+        target: ""
+        overwrite_keys: true
+        add_error_key: true
+  parsers:
+    - multiline:
+        type: pattern
+        pattern: '^{'
+        negate: true
+        match: after
+  close.on_state_change.inactive: 5m
   scan_frequency: 10s
 
 output.logstash:
@@ -72,7 +100,7 @@ processors:
 - add_host_metadata:
     when.not.contains.tags: forwarded
 
-logging.level: debug
+logging.level: info
 logging.to_files: true
 logging.files:
   path: /var/log/filebeat
