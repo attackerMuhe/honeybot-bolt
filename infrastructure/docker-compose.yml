@@ -57,6 +57,7 @@ services:
     image: docker.elastic.co/logstash/logstash:8.11.0
     container_name: logstash
     hostname: logstash
+    user: "1000:1000"
     volumes:
       - ./logstash/pipeline:/usr/share/logstash/pipeline:ro
       - ./logstash/config:/usr/share/logstash/config
