@@ -1,0 +1,82 @@
+filebeat.inputs:
+- type: log
+  enabled: true
+  paths:
+    - /data/cowrie/*.json
+  tags: ["cowrie"]
+  fields:
+    service: "cowrie"
+    honeypot_type: "ssh"
+  fields_under_root: true
+  json.keys_under_root: true
+  json.add_error_key: true
+  multiline.pattern: '^{'
+  multiline.negate: true
+  multiline.match: after
+
+- type: log
+  enabled: true
+  paths:
+    - /data/dionaea/*.log
+  tags: ["dionaea"]
+  fields:
+    service: "dionaea"
+    honeypot_type: "multi-protocol"
+  fields_under_root: true
+  multiline.pattern: '^\d{4}-\d{2}-\d{2}'
+  multiline.negate: true
+  multiline.match: after
+
+- type: log
+  enabled: true
+  paths:
+    - /data/redis/*.json
+  tags: ["redis"]
+  fields:
+    service: "redis"
+    honeypot_type: "database"
+  fields_under_root: true
+  json.keys_under_root: true
+  json.add_error_key: true
+  multiline.pattern: '^{'
+  multiline.negate: true
+  multiline.match: after
+
+- type: log
+  enabled: true
+  paths:
+    - /data/snmp/*.json
+  tags: ["snmp"]
+  fields:
+    service: "snmp"
+    honeypot_type: "network"
+  fields_under_root: true
+  json.keys_under_root: true
+  json.add_error_key: true
+  multiline.pattern: '^{'
+  multiline.negate: true
+  multiline.match: after
+
+output.logstash:
+  hosts: ["logstash:5044"]
+
+processors:
+- add_host_metadata:
+    when.not.contains.tags: forwarded
+
+logging.level: info
+logging.to_files: true
+logging.files:
+  path: /var/log/filebeat
+  name: filebeat
+  keepfiles: 7
+  permissions: 0644
+
+setup.template.settings:
+  index.number_of_shards: 1
+  index.codec: best_compression
+
+queue.mem:
+  events: 4096
+  flush.min_events: 512
+  flush.timeout: 5s
