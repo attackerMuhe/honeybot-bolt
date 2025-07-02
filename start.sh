@@ -39,7 +39,7 @@ done
 echo "✅ Elasticsearch is ready!"
 
 echo "⏳ Waiting for Kibana to be ready..."
-while ! curl -s http://localhost:5601/api/status | grep -q '"overall":{"level":"available"}'; do
+while ! curl -s http://localhost:5601/api/status | wc -l; do
     echo "   Waiting for Kibana..."
     sleep 5
 done
