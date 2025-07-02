@@ -3,8 +3,9 @@ FROM haproxy:2.8-alpine
 # Copy HAProxy configuration
 COPY haproxy.cfg /usr/local/etc/haproxy/haproxy.cfg
 
-# Create stats socket directory
-RUN mkdir -p /var/lib/haproxy
+# Create stats socket directory and set proper ownership
+RUN mkdir -p /var/lib/haproxy && \
+    chown -R haproxy:haproxy /var/lib/haproxy
 
 # Expose ports
 EXPOSE 2222 2223 6379 8404
