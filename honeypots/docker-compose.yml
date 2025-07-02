@@ -1,15 +1,44 @@
 version: '3.8'
 
 services:
+  # HAProxy Load Balancer with PROXY Protocol Support
+  haproxy:
+    build:
+      context: ./haproxy
+      dockerfile: Dockerfile
+    container_name: haproxy-honeypot
+    hostname: haproxy-honeypot
+    ports:
+      # TCP services exposed through HAProxy
+      - "2222:2222"  # SSH (Cowrie)
+      - "2223:2223"  # SSH (Cowrie)
+      - "6379:6379"  # Redis
+      - "8404:8404"  # HAProxy Stats
+    networks:
+      - elastic
+    depends_on:
+      - cowrie
+      - redis-honeypot
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "haproxy -c -f /usr/local/etc/haproxy/haproxy.cfg || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   cowrie:
     image: cowrie/cowrie:latest
     container_name: cowrie
     hostname: cowrie
-    ports:
-      - "2222:2222"
-      - "2223:2223"
+    # Ports removed - now handled by HAProxy
     volumes:
       - ./cowrie-logs:/cowrie/var/log/cowrie
+      - ./cowrie/cowrie.cfg:/cowrie/etc/cowrie.cfg:ro
       - cowrie_data:/cowrie/var/lib/cowrie
     environment:
       - COWRIE_HOSTNAME=srv01
@@ -27,20 +56,11 @@ services:
     image: dinotools/dionaea:latest
     container_name: dionaea
     hostname: dionaea
-    ports:
-      - "21:21"     # FTP
-      - "25:25"     # SMTP
-      - "69:69/udp" # TFTP
-      - "135:135"   # MS-RPC
-      - "445:445"   # SMB
-      - "1433:1433" # MSSQL
-      - "3306:3306" # MySQL
-      - "5432:5432" # PostgreSQL
+    # Use host networking to capture real external IPs
+    network_mode: host
     volumes:
       - ./dionaea-logs:/opt/dionaea/var/log
       - dionaea_data:/opt/dionaea/var/lib/dionaea
-    networks:
-      - elastic
     restart: unless-stopped
     cap_add:
       - NET_ADMIN
@@ -54,11 +74,11 @@ services:
     image: redis:7-alpine
     container_name: redis-honeypot
     hostname: redis-honeypot
-    ports:
-      - "6379:6379"
+    # Ports removed - now handled by HAProxy
     volumes:
       - ./redis-logs:/var/log/redis
       - ./redis-honeypot/redis-logger.sh:/usr/local/bin/redis-logger.sh:ro
+      - ./redis-honeypot/redis.conf:/usr/local/etc/redis/redis.conf:ro
     networks:
       - elastic
     restart: unless-stopped
@@ -66,7 +86,7 @@ services:
       sh -c "
         mkdir -p /var/log/redis &&
         touch /var/log/redis/redis.log /var/log/redis/redis-honeypot.json &&
-        redis-server --logfile /var/log/redis/redis.log --loglevel verbose --save '' --appendonly no &
+        redis-server /usr/local/etc/redis/redis.conf &
         /usr/local/bin/redis-logger.sh &
         wait
       "
@@ -82,12 +102,10 @@ services:
       dockerfile: Dockerfile
     container_name: snmp-honeypot
     hostname: snmp-honeypot
-    ports:
-      - "161:161/udp"
+    # Use host networking to capture real external IPs for UDP traffic
+    network_mode: host
     volumes:
       - ./snmp-logs:/var/log/snmp
-    networks:
-      - elastic
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "netstat -uln | grep 161 || exit 1"]

@@ -14,8 +14,11 @@ mkdir -p honeypots/dionaea-logs
 mkdir -p honeypots/redis-logs
 mkdir -p honeypots/snmp-logs
 
-# Set proper permissions for honeypot scripts
+# Set proper permissions for honeypot scripts and configs
+echo "🔧 Setting permissions..."
 chmod +x honeypots/redis-honeypot/redis-logger.sh
+chmod 644 honeypots/cowrie/cowrie.cfg
+chmod 644 honeypots/redis-honeypot/redis.conf
 
 # Fix Logstash config permissions
 echo "🔧 Setting Logstash config permissions..."
@@ -43,26 +46,47 @@ done
 
 echo "✅ Kibana is ready!"
 
-# Start honeypots
-echo "🍯 Starting honeypots..."
+# Build and start honeypots
+echo "🍯 Building and starting honeypots..."
 cd ../honeypots
+
+# Build HAProxy image
+echo "🔧 Building HAProxy load balancer..."
+docker-compose build haproxy
+
+# Start all services
 docker-compose up -d
+
+echo "⏳ Waiting for HAProxy to be ready..."
+sleep 10
+while ! curl -s http://localhost:8404/stats > /dev/null 2>&1; do
+    echo "   Waiting for HAProxy..."
+    sleep 5
+done
+
+echo "✅ HAProxy is ready!"
 
 echo ""
 echo "🎉 System startup complete!"
 echo ""
 echo "📊 Kibana Dashboard: http://localhost:5601"
 echo "🔍 Elasticsearch API: http://localhost:9200"
+echo "📈 HAProxy Stats: http://localhost:8404/stats"
 echo ""
-echo "🍯 Active Honeypots:"
+echo "🍯 Active Honeypots (with External IP Capture):"
+echo "   TCP Services (via HAProxy + PROXY Protocol):"
 echo "   • SSH (Cowrie):      localhost:2222, localhost:2223"
+echo "   • Redis:             localhost:6379"
+echo ""
+echo "   Direct Host Network Services (UDP + Multi-Protocol):"
 echo "   • FTP (Dionaea):     localhost:21"
 echo "   • SMTP (Dionaea):    localhost:25"
+echo "   • TFTP (Dionaea):    localhost:69/udp"
+echo "   • MS-RPC (Dionaea):  localhost:135"
 echo "   • SMB (Dionaea):     localhost:445"
 echo "   • MSSQL (Dionaea):   localhost:1433"
 echo "   • MySQL (Dionaea):   localhost:3306"
 echo "   • PostgreSQL (Dionaea): localhost:5432"
-echo "   • Redis:             localhost:6379"
 echo "   • SNMP:              localhost:161/udp"
 echo ""
 echo "📝 Log locations:"
@@ -74,6 +98,21 @@ echo ""
 echo "🔍 To view logs in real-time:"
 echo "   docker-compose logs -f [service_name]"
 echo ""
+echo "🔧 Architecture Notes:"
+echo "   • HAProxy handles TCP services with PROXY protocol"
+echo "   • Dionaea and SNMP use host networking for UDP traffic"
+echo "   • All services now capture real external IP addresses"
+echo ""
+echo "📈 Monitoring:"
+echo "   • HAProxy stats available at http://localhost:8404/stats"
+echo "   • Health checks configured for all services"
+echo ""
+echo "🚀 Adding New Honeypots:"
+echo "   • TCP services: Add to HAProxy config + docker-compose"
+echo "   • UDP services: Use network_mode: host"
+echo "   • Update Filebeat and Logstash configs for log processing"
+echo ""
 echo "⚠️  Security Notice: This system deploys multiple honeypots"
-echo "   Ensure you understand the security implications and comply"
-echo "   with local laws and regulations."
+echo "   • Some services use host networking (reduced isolation)"
+echo "   • Ensure you understand the security implications"
+echo "   • Comply with local laws and regulations"
