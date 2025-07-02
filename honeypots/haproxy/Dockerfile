@@ -14,5 +14,5 @@ EXPOSE 2222 2223 6379 8404
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
   CMD haproxy -c -f /usr/local/etc/haproxy/haproxy.cfg || exit 1
 
-# Start HAProxy in foreground mode
+# Start HAProxy in foreground mode for Docker
 CMD ["haproxy", "-f", "/usr/local/etc/haproxy/haproxy.cfg", "-db"]
