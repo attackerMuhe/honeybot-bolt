@@ -59,9 +59,18 @@ docker-compose up -d
 
 # Wait for backend services to be healthy before checking HAProxy
 echo "⏳ Waiting for Cowrie to be ready..."
-while ! docker-compose exec -T cowrie netstat -tuln | grep -q ":2222.*LISTEN"; do
+# Check for Cowrie startup message in logs instead of using netstat
+while ! docker-compose logs cowrie 2>/dev/null | grep -q "Listening on.*:2222"; do
     echo "   Waiting for Cowrie SSH service..."
     sleep 3
+    # Fallback: check if container is running and has been up for at least 10 seconds
+    if docker-compose ps cowrie | grep -q "Up.*seconds\|Up.*minute"; then
+        container_uptime=$(docker-compose ps cowrie | grep "Up" | awk '{print $4}')
+        if [[ "$container_uptime" =~ minute ]] || [[ "$container_uptime" =~ [1-9][0-9].*second ]]; then
+            echo "   Cowrie container has been running for $container_uptime, assuming ready..."
+            break
+        fi
+    fi
 done
 
 echo "✅ Cowrie is ready!"
@@ -155,3 +164,6 @@ echo "🔧 Troubleshooting:"
 echo "   • If backends show as DOWN in HAProxy stats, wait a few more seconds"
 echo "   • Services may take additional time to fully initialize"
 echo "   • Check individual service logs: docker-compose logs [service_name]"
+echo "   • Cowrie logs: docker-compose logs cowrie"
+echo "   • Redis logs: docker-compose logs redis-honeypot"
+echo "   • HAProxy logs: docker-compose logs haproxy"
