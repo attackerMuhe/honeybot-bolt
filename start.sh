@@ -57,14 +57,48 @@ docker-compose build haproxy
 # Start all services
 docker-compose up -d
 
+# Wait for backend services to be healthy before checking HAProxy
+echo "⏳ Waiting for Cowrie to be ready..."
+while ! docker-compose exec -T cowrie netstat -tuln | grep -q ":2222.*LISTEN"; do
+    echo "   Waiting for Cowrie SSH service..."
+    sleep 3
+done
+
+echo "✅ Cowrie is ready!"
+
+echo "⏳ Waiting for Redis honeypot to be ready..."
+while ! docker-compose exec -T redis-honeypot redis-cli ping 2>/dev/null | grep -q "PONG"; do
+    echo "   Waiting for Redis service..."
+    sleep 3
+done
+
+echo "✅ Redis honeypot is ready!"
+
 echo "⏳ Waiting for HAProxy to be ready..."
-sleep 10
+sleep 5
 while ! curl -s http://localhost:8404/stats > /dev/null 2>&1; do
     echo "   Waiting for HAProxy..."
     sleep 5
 done
 
 echo "✅ HAProxy is ready!"
+
+# Verify backend connectivity
+echo "🔍 Verifying HAProxy backend connectivity..."
+sleep 10
+
+# Check HAProxy stats for backend health
+if curl -s http://localhost:8404/stats | grep -q "cowrie.*UP"; then
+    echo "✅ Cowrie backend is healthy in HAProxy"
+else
+    echo "⚠️  Cowrie backend may still be initializing..."
+fi
+
+if curl -s http://localhost:8404/stats | grep -q "redis.*UP"; then
+    echo "✅ Redis backend is healthy in HAProxy"
+else
+    echo "⚠️  Redis backend may still be initializing..."
+fi
 
 echo ""
 echo "🎉 System startup complete!"
@@ -116,3 +150,8 @@ echo "⚠️  Security Notice: This system deploys multiple honeypots"
 echo "   • Some services use host networking (reduced isolation)"
 echo "   • Ensure you understand the security implications"
 echo "   • Comply with local laws and regulations"
+echo ""
+echo "🔧 Troubleshooting:"
+echo "   • If backends show as DOWN in HAProxy stats, wait a few more seconds"
+echo "   • Services may take additional time to fully initialize"
+echo "   • Check individual service logs: docker-compose logs [service_name]"
