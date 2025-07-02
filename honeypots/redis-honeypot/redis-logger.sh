@@ -20,10 +20,15 @@ tail -F "$LOG_FILE" 2>/dev/null | while read line; do
         timestamp=$(date -u +"%Y-%m-%dT%H:%M:%S.%3NZ")
         
         # Extract IP address - handle both regular and PROXY protocol format
-        src_ip=$(echo "$line" | grep -oE '\b([0-9]{1,3}\.){3}[0-9]{1,3}\b' | head -1)
-        
-        # Extract port if available
-        port=$(echo "$line" | grep -oE ':([0-9]+)' | cut -d':' -f2 | head -1)
+        # Look for PROXY protocol format first: PROXY TCP4 src_ip dest_ip src_port dest_port
+        if echo "$line" | grep -q "PROXY TCP4"; then
+            src_ip=$(echo "$line" | grep -oE 'PROXY TCP4 ([0-9]{1,3}\.){3}[0-9]{1,3}' | awk '{print $3}')
+            port=$(echo "$line" | grep -oE 'PROXY TCP4 [0-9.]+ [0-9.]+ [0-9]+ [0-9]+' | awk '{print $5}')
+        else
+            # Fallback to regular IP extraction
+            src_ip=$(echo "$line" | grep -oE '\b([0-9]{1,3}\.){3}[0-9]{1,3}\b' | head -1)
+            port=$(echo "$line" | grep -oE ':([0-9]+)' | cut -d':' -f2 | head -1)
+        fi
         
         # Determine action type
         if echo "$line" | grep -q "Accepted"; then
@@ -51,7 +56,13 @@ tail -F "$LOG_FILE" 2>/dev/null | while read line; do
         
         # Extract command more precisely
         command=$(echo "$line" | grep -oE "(GET|SET|DEL|FLUSHALL|CONFIG|EVAL|PING|INFO|KEYS|SCAN|HGET|HSET|LPUSH|RPUSH|SADD|ZADD)[^\"]*" | head -1)
-        src_ip=$(echo "$line" | grep -oE '\b([0-9]{1,3}\.){3}[0-9]{1,3}\b' | head -1)
+        
+        # Extract IP with PROXY protocol support
+        if echo "$line" | grep -q "PROXY TCP4"; then
+            src_ip=$(echo "$line" | grep -oE 'PROXY TCP4 ([0-9]{1,3}\.){3}[0-9]{1,3}' | awk '{print $3}')
+        else
+            src_ip=$(echo "$line" | grep -oE '\b([0-9]{1,3}\.){3}[0-9]{1,3}\b' | head -1)
+        fi
         
         # Skip localhost connections (health checks)
         if [ "$src_ip" = "127.0.0.1" ] || [ "$src_ip" = "localhost" ]; then
@@ -75,7 +86,12 @@ tail -F "$LOG_FILE" 2>/dev/null | while read line; do
     if echo "$line" | grep -qE "(AUTH|HELLO)"; then
         timestamp=$(date -u +"%Y-%m-%dT%H:%M:%S.%3NZ")
         
-        src_ip=$(echo "$line" | grep -oE '\b([0-9]{1,3}\.){3}[0-9]{1,3}\b' | head -1)
+        # Extract IP with PROXY protocol support
+        if echo "$line" | grep -q "PROXY TCP4"; then
+            src_ip=$(echo "$line" | grep -oE 'PROXY TCP4 ([0-9]{1,3}\.){3}[0-9]{1,3}' | awk '{print $3}')
+        else
+            src_ip=$(echo "$line" | grep -oE '\b([0-9]{1,3}\.){3}[0-9]{1,3}\b' | head -1)
+        fi
         
         # Skip localhost connections
         if [ "$src_ip" = "127.0.0.1" ] || [ "$src_ip" = "localhost" ]; then

@@ -39,7 +39,7 @@ done
 echo "✅ Elasticsearch is ready!"
 
 echo "⏳ Waiting for Kibana to be ready..."
-while ! curl -s http://localhost:5601/api/status | wc -l; do
+while ! curl -s http://localhost:5601/api/status > /dev/null 2>&1; do
     echo "   Waiting for Kibana..."
     sleep 5
 done
@@ -59,26 +59,32 @@ docker-compose up -d
 
 # Wait for backend services to be healthy before checking HAProxy
 echo "⏳ Waiting for Cowrie to be ready..."
-# Check for Cowrie startup message in logs instead of using netstat
-while ! docker-compose logs cowrie 2>/dev/null | grep -q "Listening on.*:2222"; do
-    echo "   Waiting for Cowrie SSH service..."
-    sleep 3
-    # Fallback: check if container is running and has been up for at least 10 seconds
-    if docker-compose ps cowrie | grep -q "Up.*seconds\|Up.*minute"; then
-        container_uptime=$(docker-compose ps cowrie | grep "Up" | awk '{print $4}')
-        if [[ "$container_uptime" =~ minute ]] || [[ "$container_uptime" =~ [1-9][0-9].*second ]]; then
-            echo "   Cowrie container has been running for $container_uptime, assuming ready..."
-            break
-        fi
+# Wait for Cowrie to start listening on its ports
+timeout=60
+counter=0
+while [ $counter -lt $timeout ]; do
+    if docker-compose logs cowrie 2>/dev/null | grep -q "Starting factory"; then
+        echo "   Cowrie factory started, waiting for listeners..."
+        sleep 5
+        break
     fi
+    echo "   Waiting for Cowrie to start... ($counter/$timeout)"
+    sleep 3
+    counter=$((counter + 3))
 done
 
 echo "✅ Cowrie is ready!"
 
 echo "⏳ Waiting for Redis honeypot to be ready..."
-while ! docker-compose exec -T redis-honeypot redis-cli ping 2>/dev/null | grep -q "PONG"; do
-    echo "   Waiting for Redis service..."
+timeout=60
+counter=0
+while [ $counter -lt $timeout ]; do
+    if docker-compose exec -T redis-honeypot redis-cli ping 2>/dev/null | grep -q "PONG"; then
+        break
+    fi
+    echo "   Waiting for Redis service... ($counter/$timeout)"
     sleep 3
+    counter=$((counter + 3))
 done
 
 echo "✅ Redis honeypot is ready!"
@@ -94,19 +100,20 @@ echo "✅ HAProxy is ready!"
 
 # Verify backend connectivity
 echo "🔍 Verifying HAProxy backend connectivity..."
-sleep 10
+sleep 15
 
 # Check HAProxy stats for backend health
+echo "📊 Checking backend health status..."
 if curl -s http://localhost:8404/stats | grep -q "cowrie.*UP"; then
     echo "✅ Cowrie backend is healthy in HAProxy"
 else
-    echo "⚠️  Cowrie backend may still be initializing..."
+    echo "⚠️  Cowrie backend status: $(curl -s http://localhost:8404/stats | grep cowrie | awk -F',' '{print $18}' || echo 'Unknown')"
 fi
 
 if curl -s http://localhost:8404/stats | grep -q "redis.*UP"; then
     echo "✅ Redis backend is healthy in HAProxy"
 else
-    echo "⚠️  Redis backend may still be initializing..."
+    echo "⚠️  Redis backend status: $(curl -s http://localhost:8404/stats | grep redis | awk -F',' '{print $18}' || echo 'Unknown')"
 fi
 
 echo ""
@@ -167,3 +174,8 @@ echo "   • Check individual service logs: docker-compose logs [service_name]"
 echo "   • Cowrie logs: docker-compose logs cowrie"
 echo "   • Redis logs: docker-compose logs redis-honeypot"
 echo "   • HAProxy logs: docker-compose logs haproxy"
+echo ""
+echo "🧪 Test External IP Capture:"
+echo "   • SSH test: ssh -p 2222 root@localhost"
+echo "   • Redis test: redis-cli -h localhost -p 6379 ping"
+echo "   • Check logs for real external IP addresses (not Docker internal IPs)"
