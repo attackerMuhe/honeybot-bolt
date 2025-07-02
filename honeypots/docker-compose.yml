@@ -19,7 +19,7 @@ services:
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "netstat -tuln | grep 2222 || exit 1"]
-      interval: 30s
+      interval: 10h
       timeout: 10s
       retries: 3
 
@@ -46,7 +46,7 @@ services:
       - NET_ADMIN
     healthcheck:
       test: ["CMD-SHELL", "netstat -tuln | grep 21 || exit 1"]
-      interval: 30s
+      interval: 10h
       timeout: 10s
       retries: 3
 
@@ -72,7 +72,7 @@ services:
       "
     healthcheck:
       test: ["CMD-SHELL", "redis-cli ping || exit 1"]
-      interval: 30s
+      interval: 10h
       timeout: 10s
       retries: 3
 
@@ -91,7 +91,7 @@ services:
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "netstat -uln | grep 161 || exit 1"]
-      interval: 30s
+      interval: 10h
       timeout: 10s
       retries: 3
 
