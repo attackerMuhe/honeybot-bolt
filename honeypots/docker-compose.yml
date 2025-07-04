@@ -35,7 +35,6 @@ services:
     image: cowrie/cowrie:latest
     container_name: cowrie
     hostname: cowrie
-    # Ports removed - now handled by HAProxy
     volumes:
       - ./cowrie-logs:/cowrie/var/log/cowrie
       - ./cowrie/cowrie.cfg:/cowrie/etc/cowrie.cfg:ro
@@ -56,7 +55,6 @@ services:
     image: dinotools/dionaea:latest
     container_name: dionaea
     hostname: dionaea
-    # Use host networking to capture real external IPs
     network_mode: host
     volumes:
       - ./dionaea-logs:/opt/dionaea/var/log
@@ -74,27 +72,23 @@ services:
     build: ./redis-honeypot
     container_name: redis-honeypot
     hostname: redis-honeypot
-    # Ports removed - now handled by HAProxy
     volumes:
       - ./redis-logs:/var/log/redis
       - ./redis-honeypot/redis-logger.sh:/usr/local/bin/redis-logger.sh:ro
       - ./redis-honeypot/redis.conf:/usr/local/etc/redis/redis.conf:ro
-      - ./redis-honeypot/stunnel.conf:/etc/stunnel/stunnel.conf:ro
     networks:
       - elastic
     restart: unless-stopped
     command: >
       sh -c "
         mkdir -p /var/log/redis &&
-        touch /var/log/redis/redis.log /var/log/redis/redis-honeypot.json &&
-        redis-server /usr/local/etc/redis/redis.conf &
-        /usr/local/bin/redis-logger.sh &
-        wait
+        touch /var/log/redis/redis.log &&
+        exec redis-server /usr/local/etc/redis/redis.conf
       "
     healthcheck:
       test: ["CMD-SHELL", "redis-cli -p 6380 ping || exit 1"]
-      interval: 10h
-      timeout: 10s
+      interval: 30s
+      timeout: 5s
       retries: 3
 
   snmp-honeypot:
@@ -103,7 +97,6 @@ services:
       dockerfile: Dockerfile
     container_name: snmp-honeypot
     hostname: snmp-honeypot
-    # Use host networking to capture real external IPs for UDP traffic
     network_mode: host
     volumes:
       - ./snmp-logs:/var/log/snmp
