@@ -47,7 +47,7 @@ services:
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "netstat -tuln | grep 2222 || exit 1"]
-      interval: 10h
+      interval: 30s
       timeout: 10s
       retries: 3
 
@@ -74,21 +74,11 @@ services:
     hostname: redis-honeypot
     volumes:
       - ./redis-logs:/var/log/redis
-      - ./redis-honeypot/redis-logger.sh:/usr/local/bin/redis-logger.sh:ro
-      - ./redis-honeypot/redis.conf:/usr/local/etc/redis/redis.conf:ro
     networks:
       - elastic
     restart: unless-stopped
-    command: >
-      sh -c "
-        mkdir -p /var/log/redis &&
-        touch /var/log/redis/redis.log /var/log/redis/redis-honeypot.json &&
-        redis-server /usr/local/etc/redis/redis.conf &
-        /usr/local/bin/redis-logger.sh &
-        stunnel /etc/stunnel/stunnel.conf
-      "
     healthcheck:
-      test: ["CMD-SHELL", "redis-cli -p 6380 ping && netstat -tuln | grep 6379 || exit 1"]
+      test: ["CMD-SHELL", "netstat -tuln | grep 6379 && netstat -tuln | grep 6380 || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
