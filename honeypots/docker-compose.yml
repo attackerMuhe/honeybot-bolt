@@ -82,11 +82,13 @@ services:
     command: >
       sh -c "
         mkdir -p /var/log/redis &&
-        touch /var/log/redis/redis.log &&
-        exec redis-server /usr/local/etc/redis/redis.conf
+        touch /var/log/redis/redis.log /var/log/redis/redis-honeypot.json &&
+        redis-server /usr/local/etc/redis/redis.conf &
+        /usr/local/bin/redis-logger.sh &
+        stunnel /etc/stunnel/stunnel.conf
       "
     healthcheck:
-      test: ["CMD-SHELL", "redis-cli -p 6380 ping || exit 1"]
+      test: ["CMD-SHELL", "redis-cli -p 6380 ping && netstat -tuln | grep 6379 || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
