@@ -92,7 +92,7 @@ services:
         wait
       "
     healthcheck:
-      test: ["CMD-SHELL", "redis-cli ping || exit 1"]
+      test: ["CMD-SHELL", "redis-cli -p 6380 ping || exit 1"]
       interval: 10h
       timeout: 10s
       retries: 3
