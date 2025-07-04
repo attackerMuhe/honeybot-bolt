@@ -78,7 +78,8 @@ services:
     volumes:
       - ./redis-logs:/var/log/redis
       - ./redis-honeypot/redis-logger.sh:/usr/local/bin/redis-logger.sh:ro
-      - ./redis-honeypot/redis.conf:/usr/local/etc/redis/redis.conf:ro
+      - ./redis-honeypot/redis.conf:/etc/redis/redis.conf:ro
+      - ./redis-honeypot/stunnel.conf:/etc/stunnel/stunnel.conf:ro
     networks:
       - elastic
     restart: unless-stopped
