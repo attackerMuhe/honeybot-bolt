@@ -71,7 +71,7 @@ services:
       retries: 3
 
   redis-honeypot:
-    image: redis:7-alpine
+    build: ./redis-honeypot
     container_name: redis-honeypot
     hostname: redis-honeypot
     # Ports removed - now handled by HAProxy
