@@ -47,7 +47,7 @@ services:
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "netstat -tuln | grep 2222 || exit 1"]
-      interval: 10h
+      interval: 30s
       timeout: 10s
       retries: 3
 
@@ -64,7 +64,7 @@ services:
       - NET_ADMIN
     healthcheck:
       test: ["CMD-SHELL", "netstat -tuln | grep 21 || exit 1"]
-      interval: 10h
+      interval: 30s
       timeout: 10s
       retries: 3
 
@@ -85,12 +85,12 @@ services:
         touch /var/log/redis/redis.log /var/log/redis/redis-honeypot.json &&
         redis-server /usr/local/etc/redis/redis.conf &
         /usr/local/bin/redis-logger.sh &
-        stunnel /etc/stunnel/stunnel.conf
+        wait
       "
     healthcheck:
-      test: ["CMD-SHELL", "redis-cli -p 6380 ping && netstat -tuln | grep 6379 || exit 1"]
+      test: ["CMD-SHELL", "redis-cli ping || exit 1"]
       interval: 30s
-      timeout: 5s
+      timeout: 10s
       retries: 3
 
   snmp-honeypot:
@@ -105,7 +105,7 @@ services:
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "netstat -uln | grep 161 || exit 1"]
-      interval: 10h
+      interval: 30s
       timeout: 10s
       retries: 3
 
