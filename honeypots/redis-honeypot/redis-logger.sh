@@ -1,12 +1,12 @@
 #!/bin/sh
 
-# Redis Honeypot Logger - Standard TCP logging
+# Redis Honeypot Logger with PROXY Protocol Support
 # Monitors Redis log and converts to structured JSON format
 
 LOG_FILE="/var/log/redis/redis.log"
 JSON_LOG="/var/log/redis/redis-honeypot.json"
 
-echo "Starting Redis honeypot logger..."
+echo "Starting Redis honeypot logger with PROXY protocol support..."
 
 # Function to extract client info and log as JSON
 tail -F "$LOG_FILE" 2>/dev/null | while read line; do
@@ -19,9 +19,18 @@ tail -F "$LOG_FILE" 2>/dev/null | while read line; do
     if echo "$line" | grep -q "Accepted\|Client\|Connection"; then
         timestamp=$(date -u +"%Y-%m-%dT%H:%M:%S.%3NZ")
         
-        # Extract IP address from standard Redis logs
-        src_ip=$(echo "$line" | grep -oE '\b([0-9]{1,3}\.){3}[0-9]{1,3}\b' | head -1)
-        port=$(echo "$line" | grep -oE ':([0-9]+)' | cut -d':' -f2 | head -1)
+        # Extract IP address - handle both regular and PROXY protocol format
+        # Look for PROXY protocol format first: PROXY TCP4 src_ip dest_ip src_port dest_port
+        if echo "$line" | grep -q "PROXY TCP4"; then
+            src_ip=$(echo "$line" | grep -oE 'PROXY TCP4 ([0-9]{1,3}\.){3}[0-9]{1,3}' | awk '{print $3}')
+            port=$(echo "$line" | grep -oE 'PROXY TCP4 [0-9.]+ [0-9.]+ [0-9]+ [0-9]+' | awk '{print $5}')
+            proxy_detected="true"
+        else
+            # Fallback to regular IP extraction
+            src_ip=$(echo "$line" | grep -oE '\b([0-9]{1,3}\.){3}[0-9]{1,3}\b' | head -1)
+            port=$(echo "$line" | grep -oE ':([0-9]+)' | cut -d':' -f2 | head -1)
+            proxy_detected="false"
+        fi
         
         # Determine action type
         if echo "$line" | grep -q "Accepted"; then
@@ -38,7 +47,7 @@ tail -F "$LOG_FILE" 2>/dev/null | while read line; do
         fi
         
         # Create JSON log entry
-        json_entry="{\"timestamp\":\"$timestamp\",\"service\":\"redis\",\"src_ip\":\"${src_ip:-unknown}\",\"src_port\":\"${port:-unknown}\",\"action\":\"$action\",\"raw_log\":\"$(echo "$line" | sed 's/"/\\"/g')\",\"honeypot\":\"redis\"}"
+        json_entry="{\"timestamp\":\"$timestamp\",\"service\":\"redis\",\"src_ip\":\"${src_ip:-unknown}\",\"src_port\":\"${port:-unknown}\",\"action\":\"$action\",\"raw_log\":\"$(echo "$line" | sed 's/"/\\"/g')\",\"honeypot\":\"redis\",\"proxy_protocol\":\"enabled\",\"proxy_detected\":\"$proxy_detected\"}"
         
         echo "$json_entry" >> "$JSON_LOG"
     fi
@@ -50,8 +59,14 @@ tail -F "$LOG_FILE" 2>/dev/null | while read line; do
         # Extract command more precisely
         command=$(echo "$line" | grep -oE "(GET|SET|DEL|FLUSHALL|CONFIG|EVAL|PING|INFO|KEYS|SCAN|HGET|HSET|LPUSH|RPUSH|SADD|ZADD)[^\"]*" | head -1)
         
-        # Extract IP from standard Redis logs
-        src_ip=$(echo "$line" | grep -oE '\b([0-9]{1,3}\.){3}[0-9]{1,3}\b' | head -1)
+        # Extract IP with PROXY protocol support
+        if echo "$line" | grep -q "PROXY TCP4"; then
+            src_ip=$(echo "$line" | grep -oE 'PROXY TCP4 ([0-9]{1,3}\.){3}[0-9]{1,3}' | awk '{print $3}')
+            proxy_detected="true"
+        else
+            src_ip=$(echo "$line" | grep -oE '\b([0-9]{1,3}\.){3}[0-9]{1,3}\b' | head -1)
+            proxy_detected="false"
+        fi
         
         # Skip localhost connections (health checks)
         if [ "$src_ip" = "127.0.0.1" ] || [ "$src_ip" = "localhost" ]; then
@@ -66,7 +81,7 @@ tail -F "$LOG_FILE" 2>/dev/null | while read line; do
             threat_level="medium"
         fi
         
-        json_entry="{\"timestamp\":\"$timestamp\",\"service\":\"redis\",\"src_ip\":\"${src_ip:-unknown}\",\"command\":\"$command\",\"action\":\"command_execution\",\"threat_level\":\"$threat_level\",\"raw_log\":\"$(echo "$line" | sed 's/"/\\"/g')\",\"honeypot\":\"redis\"}"
+        json_entry="{\"timestamp\":\"$timestamp\",\"service\":\"redis\",\"src_ip\":\"${src_ip:-unknown}\",\"command\":\"$command\",\"action\":\"command_execution\",\"threat_level\":\"$threat_level\",\"raw_log\":\"$(echo "$line" | sed 's/"/\\"/g')\",\"honeypot\":\"redis\",\"proxy_protocol\":\"enabled\",\"proxy_detected\":\"$proxy_detected\"}"
         
         echo "$json_entry" >> "$JSON_LOG"
     fi
@@ -75,15 +90,21 @@ tail -F "$LOG_FILE" 2>/dev/null | while read line; do
     if echo "$line" | grep -qE "(AUTH|HELLO)"; then
         timestamp=$(date -u +"%Y-%m-%dT%H:%M:%S.%3NZ")
         
-        # Extract IP from standard Redis logs
-        src_ip=$(echo "$line" | grep -oE '\b([0-9]{1,3}\.){3}[0-9]{1,3}\b' | head -1)
+        # Extract IP with PROXY protocol support
+        if echo "$line" | grep -q "PROXY TCP4"; then
+            src_ip=$(echo "$line" | grep -oE 'PROXY TCP4 ([0-9]{1,3}\.){3}[0-9]{1,3}' | awk '{print $3}')
+            proxy_detected="true"
+        else
+            src_ip=$(echo "$line" | grep -oE '\b([0-9]{1,3}\.){3}[0-9]{1,3}\b' | head -1)
+            proxy_detected="false"
+        fi
         
         # Skip localhost connections
         if [ "$src_ip" = "127.0.0.1" ] || [ "$src_ip" = "localhost" ]; then
             continue
         fi
         
-        json_entry="{\"timestamp\":\"$timestamp\",\"service\":\"redis\",\"src_ip\":\"${src_ip:-unknown}\",\"action\":\"authentication_attempt\",\"threat_level\":\"medium\",\"raw_log\":\"$(echo "$line" | sed 's/"/\\"/g')\",\"honeypot\":\"redis\"}"
+        json_entry="{\"timestamp\":\"$timestamp\",\"service\":\"redis\",\"src_ip\":\"${src_ip:-unknown}\",\"action\":\"authentication_attempt\",\"threat_level\":\"medium\",\"raw_log\":\"$(echo "$line" | sed 's/"/\\"/g')\",\"honeypot\":\"redis\",\"proxy_protocol\":\"enabled\",\"proxy_detected\":\"$proxy_detected\"}"
         
         echo "$json_entry" >> "$JSON_LOG"
     fi
